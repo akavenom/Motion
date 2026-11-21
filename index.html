@@ -406,4 +406,941 @@
                 this.x = x;
                 this.y = y;
                 this.age = 0;
-                th
+                this.maxAge = 4.5; // Lifetime before complete fade
+                this.rotation = Math.random() * Math.PI * 2;
+                this.maxRadius = Math.random() * 9 + 21; // Half-size petal radius
+                this.swayOffset = Math.random() * Math.PI * 2;
+                this.colorTheme = currentTheme;
+                this.burstDone = false;
+            }
+
+            update(dt, timeSec) {
+                this.age += dt;
+
+                // Emit pollen burst upon initial bloom opening
+                if (!this.burstDone && this.age > 0.12) {
+                    this.burstDone = true;
+                    for (let i = 0; i < 10; i++) {
+                        pollenParticles.push(new PollenParticle(
+                            this.x + (Math.random() - 0.5) * 12,
+                            this.y + (Math.random() - 0.5) * 12,
+                            true
+                        ));
+                    }
+                }
+            }
+
+            draw(ctx, timeSec) {
+                // Eased unfolding growth
+                const bloomProgress = Math.min(1, this.age / 0.75);
+                const easeBloom = 1 - Math.pow(1 - bloomProgress, 3); // Cubic ease-out
+
+                // Fade out near end of life
+                let alpha = 1;
+                if (this.age > this.maxAge - 1.2) {
+                    alpha = (this.maxAge - this.age) / 1.2;
+                }
+                if (alpha <= 0) return;
+
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, alpha);
+
+                // Gentle hovering sway physics
+                const swayX = Math.sin(timeSec * 2 + this.swayOffset) * 3;
+                const swayY = Math.cos(timeSec * 1.5 + this.swayOffset) * 1.5;
+                ctx.translate(this.x + swayX, this.y + swayY);
+                ctx.rotate(this.rotation + Math.sin(timeSec * 1.2 + this.swayOffset) * 0.08);
+
+                const currentR = this.maxRadius * easeBloom;
+
+                // 1. Draw 5 Broad Ruffled Overlapping Petals
+                for (let i = 0; i < 5; i++) {
+                    const angle = (i * Math.PI * 2) / 5;
+                    ctx.save();
+                    ctx.rotate(angle);
+
+                    // Multi-stop silky radial gradient: dark throat to rich theme colors
+                    const grad = ctx.createRadialGradient(0, 0, currentR * 0.08, 0, -currentR * 0.5, currentR * 1.15);
+                    grad.addColorStop(0, '#4a0013'); // Deep crimson throat
+                    grad.addColorStop(0.22, this.colorTheme.petalMid[0]);
+                    grad.addColorStop(0.68, this.colorTheme.petalInner[0]);
+                    grad.addColorStop(1, '#ffffff');
+
+                    ctx.fillStyle = grad;
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.bezierCurveTo(-currentR * 0.6, -currentR * 0.35, -currentR * 0.7, -currentR * 0.98, 0, -currentR);
+                    ctx.bezierCurveTo(currentR * 0.7, -currentR * 0.98, currentR * 0.6, -currentR * 0.35, 0, 0);
+                    ctx.fill();
+
+                    // Delicate petal veins (scaled for half size)
+                    ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+                    ctx.lineWidth = 0.6;
+                    for (let v = -2; v <= 2; v += 2) {
+                        ctx.beginPath();
+                        ctx.moveTo(0, 0);
+                        ctx.quadraticCurveTo(v * 2, -currentR * 0.5, v * 4, -currentR * 0.88);
+                        ctx.stroke();
+                    }
+
+                    ctx.restore();
+                }
+
+                // 2. Velvet Throat Shadow Rim
+                ctx.fillStyle = "#32000a";
+                ctx.beginPath();
+                ctx.arc(0, 0, currentR * 0.22, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 3. Iconic Hibiscus Stamen Column (Scaled for half size)
+                if (easeBloom > 0.25) {
+                    const stamenLen = currentR * 1.05 * easeBloom;
+                    ctx.save();
+                    ctx.rotate(-0.3); // Characteristic slanted protrusion
+
+                    // Slender curved pistil column
+                    ctx.strokeStyle = "rgba(255, 225, 200, 0.95)";
+                    ctx.lineWidth = 1.4;
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.quadraticCurveTo(4, -stamenLen * 0.6, 2.5, -stamenLen);
+                    ctx.stroke();
+
+                    // Golden Anthers along upper shaft
+                    ctx.fillStyle = "#ffe66d";
+                    ctx.shadowColor = "#ffe66d";
+                    ctx.shadowBlur = 4;
+                    for (let a = 0.35; a <= 0.88; a += 0.14) {
+                        const py = -stamenLen * a;
+                        ctx.beginPath();
+                        ctx.arc(-1.3, py, 1.0, 0, Math.PI * 2);
+                        ctx.arc(1.8, py, 1.0, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+
+                    // 5 Velvety Crimson Stigma Tips at end of pistil
+                    ctx.fillStyle = "#e11d48";
+                    ctx.shadowColor = "#f43f5e";
+                    ctx.shadowBlur = 5;
+                    const tipX = 2.5, tipY = -stamenLen;
+                    for (let s = 0; s < 5; s++) {
+                        const sAng = (s * Math.PI * 2) / 5;
+                        const sx = tipX + Math.cos(sAng) * 2.2;
+                        const sy = tipY + Math.sin(sAng) * 2.2;
+                        ctx.beginPath();
+                        ctx.arc(sx, sy, 1.2, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+
+                    ctx.restore();
+                }
+
+                ctx.restore();
+            }
+        }
+
+        // Kinetic Motion Graphic Ring around Bud/Bloom
+        class KineticRing {
+            constructor(x, y, maxR = 120) {
+                this.x = x;
+                this.y = y;
+                this.radius = 10;
+                this.maxRadius = maxR;
+                this.alpha = 0.6;
+                this.rotation = Math.random() * Math.PI;
+            }
+            update() {
+                this.radius += 1.2;
+                this.alpha -= 0.008;
+                this.rotation += 0.01;
+            }
+            draw(ctx) {
+                if (this.alpha <= 0) return;
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+                ctx.globalAlpha = Math.max(0, this.alpha);
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+                ctx.lineWidth = 1;
+                ctx.setLineDash([4, 8]);
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Outer accent tick marks
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius + 8, 0, Math.PI * 0.5);
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        // Color helper: Interpolate color arrays
+        function lerpColor(c1, c2, factor) {
+            return [
+                Math.round(c1[0] + (c2[0] - c1[0]) * factor),
+                Math.round(c1[1] + (c2[1] - c1[1]) * factor),
+                Math.round(c1[2] + (c2[2] - c1[2]) * factor)
+            ];
+        }
+
+        function rgbStr(c, a = 1) {
+            return `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${a})`;
+        }
+
+        // Track triggered kinetic ring milestones
+        const triggeredMilestones = new Set();
+
+        // Cubic Bezier interpolation helper for stem leaf attachments
+        function getBezierPoint(t, p0, p1, p2, p3) {
+            const u = 1 - t;
+            const tt = t * t;
+            const uu = u * u;
+            const uuu = uu * u;
+            const ttt = tt * t;
+            return {
+                x: uuu * p0.x + 3 * uu * t * p1.x + 3 * u * tt * p2.x + ttt * p3.x,
+                y: uuu * p0.y + 3 * uu * t * p1.y + 3 * u * tt * p2.y + ttt * p3.y
+            };
+        }
+
+        // Emit a burst of glowing dust/pollen particles from the soil
+        function spawnSoilBurst(x, y) {
+            for (let i = 0; i < 20; i++) {
+                pollenParticles.push(new PollenParticle(
+                    x + (Math.random() - 0.5) * 90,
+                    y - Math.random() * 12,
+                    true
+                ));
+            }
+        }
+
+        // Trigger kinetic botanical rings at key growth milestones
+        function triggerMilestones() {
+            const milestones = [0.25, 0.5, 0.75, 0.95];
+            milestones.forEach(m => {
+                if (progress >= m && !triggeredMilestones.has(m)) {
+                    triggeredMilestones.add(m);
+                    const ringX = width / 2 + currentSway;
+                    const ringY = height * (0.82 - 0.42 * Math.min(1, progress / 0.52));
+                    kineticRings.push(new KineticRing(ringX, ringY, 90 + m * 60));
+                }
+            });
+        }
+
+        /**
+         * 1. ATMOSPHERIC SKY & VOLUMETRIC LIGHT RAYS
+         */
+        function drawAtmosphere(timeSec) {
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, height * 0.85);
+            const warmShift = Math.min(1, progress * 1.1);
+            const topCol = lerpColor(currentTheme.skyTop, currentTheme.skyMid, warmShift * 0.35);
+            const midCol = lerpColor(currentTheme.skyMid, currentTheme.skyBottom, warmShift * 0.25);
+
+            skyGrad.addColorStop(0, rgbStr(topCol, 1));
+            skyGrad.addColorStop(0.55, rgbStr(midCol, 1));
+            skyGrad.addColorStop(1, rgbStr(currentTheme.skyBottom, 0.85));
+
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, width, height);
+
+            // Soft diagonal volumetric light beams
+            ctx.save();
+            ctx.globalCompositeOperation = 'screen';
+            for (let i = 0; i < 3; i++) {
+                const drift = Math.sin(timeSec * 0.35 + i * 2.1) * 60;
+                const beamX = width * (0.25 + i * 0.25) + drift;
+                const beamGrad = ctx.createLinearGradient(beamX, 0, beamX + 140, height * 0.85);
+                beamGrad.addColorStop(0, 'rgba(255, 255, 255, 0.06)');
+                beamGrad.addColorStop(0.6, currentTheme.glow.replace(/[\d.]+\)$/, '0.07)'));
+                beamGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+                ctx.fillStyle = beamGrad;
+                ctx.beginPath();
+                ctx.moveTo(beamX - 50, 0);
+                ctx.lineTo(beamX + 60, 0);
+                ctx.lineTo(beamX + 260, height * 0.85);
+                ctx.lineTo(beamX + 50, height * 0.85);
+                ctx.closePath();
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        /**
+         * 2. AMBIENT FLOATING STARS & LUMINESCENT MOTES
+         */
+        function drawBackgroundStars() {
+            ctx.save();
+            for (let i = 0; i < backgroundStars.length; i++) {
+                const s = backgroundStars[i];
+                s.y -= s.speedY;
+                s.pulse += 0.025;
+                if (s.y < -5) {
+                    s.y = height * 0.82;
+                    s.x = Math.random() * width;
+                }
+                const twinkle = s.alpha * (0.55 + 0.45 * Math.sin(s.pulse));
+                ctx.globalAlpha = Math.max(0, twinkle);
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        /**
+         * 3. SOIL HORIZON, MIST LAYER & EMERGENCE MOUNDS
+         */
+        function drawGround(groundY, stemBaseX) {
+            ctx.save();
+
+            // Soft horizon mist
+            const mistGrad = ctx.createLinearGradient(0, groundY - 70, 0, groundY + 15);
+            mistGrad.addColorStop(0, 'rgba(255, 255, 255, 0)');
+            mistGrad.addColorStop(1, currentTheme.glow.replace(/[\d.]+\)$/, '0.18)'));
+            ctx.fillStyle = mistGrad;
+            ctx.fillRect(0, groundY - 70, width, 85);
+
+            // Rolling soil horizon
+            const groundGrad = ctx.createLinearGradient(0, groundY - 15, 0, height);
+            groundGrad.addColorStop(0, rgbStr(currentTheme.groundTop, 1));
+            groundGrad.addColorStop(1, rgbStr(currentTheme.groundBottom, 1));
+
+            ctx.fillStyle = groundGrad;
+            ctx.beginPath();
+            ctx.moveTo(0, groundY + 10);
+            ctx.quadraticCurveTo(width * 0.25, groundY - 12, stemBaseX, groundY);
+            ctx.quadraticCurveTo(width * 0.75, groundY - 12, width, groundY + 10);
+            ctx.lineTo(width, height);
+            ctx.lineTo(0, height);
+            ctx.closePath();
+            ctx.fill();
+
+            // Subtle soil mounds under each tulip base
+            ctx.fillStyle = rgbStr(currentTheme.groundBottom, 0.75);
+            TULIP_CLUSTER.forEach(t => {
+                const mx = width * t.xRatio;
+                ctx.beginPath();
+                ctx.ellipse(mx, groundY + 3, 22 * t.scale, 6 * t.scale, 0, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            ctx.restore();
+        }
+
+        /**
+         * MAIN RENDER ENGINE
+         */
+        function drawScene(timestamp) {
+            const dt = Math.min((timestamp - lastTime) / 1000, 0.1);
+            lastTime = timestamp;
+
+            // Advance Progress if Playing
+            if (isPlaying) {
+                progress += (dt / DURATION_SECONDS) * speedMultiplier;
+                if (progress > 1.0) {
+                    progress = 1.0;
+                }
+                updateUIProgress();
+            }
+
+            // Smooth Sway Inertia (Wind Physics)
+            const timeSec = timestamp * 0.001;
+            const naturalWind = Math.sin(timeSec * 1.2) * 12 + Math.cos(timeSec * 2.1) * 6;
+            const mouseForce = (mouseX - width / 2) * 0.06;
+            targetSway = naturalWind + (userInteracted ? mouseForce : 0);
+            
+            // Spring damping math
+            swayVelocity += (targetSway - currentSway) * 0.05;
+            swayVelocity *= 0.88;
+            currentSway += swayVelocity;
+
+            // Milestone Kinetic Rings
+            triggerMilestones();
+
+            // Clear Screen
+            ctx.clearRect(0, 0, width, height);
+
+            // 1. Volumetric Atmospheric Sky & Sunbeams
+            drawAtmosphere(timeSec);
+
+            // 2. Floating Background Motes/Stars
+            drawBackgroundStars();
+
+            // 3. Soil Horizon & Emergence Soil Mound
+            const groundY = height * 0.82;
+            const stemBaseX = width / 2;
+            drawGround(groundY, stemBaseX);
+
+            // 4. Multi-Tulip Cluster Growth (Exact Chalice Anatomy)
+            if (progress > 0.01) {
+                drawTulipCluster(groundY, timeSec);
+            }
+
+            // 5. Particles (Pollen, Hibiscus Blooms, Kinetic Rings)
+            drawParticles(dt, timeSec);
+
+            requestAnimationFrame(drawScene);
+        }
+
+        /**
+         * RENDER MULTIPLE TULIPS (CLUSTER DEPLOYMENT)
+         */
+        function drawTulipCluster(groundY, timeSec) {
+            TULIP_CLUSTER.forEach(tData => {
+                // Calculate individual staggered progress
+                const indivProgress = Math.max(0, Math.min(1, (progress - tData.bloomOffset) / (1 - tData.bloomOffset)));
+                if (indivProgress > 0) {
+                    const baseX = width * tData.xRatio;
+                    drawSingleExactTulip(baseX, groundY, tData, indivProgress, timeSec);
+                }
+            });
+        }
+
+        /**
+         * DRAW SINGLE BOTANICALLY ACCURATE TULIP
+         */
+        function drawSingleExactTulip(baseX, baseY, tData, indivProgress, timeSec) {
+            ctx.save();
+
+            const maxStemHeight = height * tData.heightRatio;
+            const currentStemHeight = maxStemHeight * Math.min(1, indivProgress / 0.52);
+
+            // Sway with Phase Offset
+            const stemSway = currentSway * (0.6 + tData.scale * 0.4) + Math.sin(timeSec * 1.6 + tData.swayPhase) * 4;
+            const bendOffset = tData.bend * Math.min(1, indivProgress / 0.5);
+
+            // Cubic Bezier Stem Control Points
+            const p0 = { x: baseX, y: baseY };
+            const p1 = { x: baseX + (stemSway * 0.2) + bendOffset * 0.3, y: baseY - currentStemHeight * 0.38 };
+            const p2 = { x: baseX + (stemSway * 0.7) + bendOffset, y: baseY - currentStemHeight * 0.72 };
+            const p3 = { x: baseX + stemSway + bendOffset, y: baseY - currentStemHeight };
+
+            // 1. Broad Glaucous Clasping Leaves (Bottom of Stem)
+            if (indivProgress > 0.18) {
+                const leafProgress = Math.min(1, (indivProgress - 0.18) / 0.4);
+                drawExactTulipLeaves(p0, p1, p2, p3, leafProgress, tData.scale, timeSec + tData.swayPhase);
+            }
+
+            // 2. Smooth Cylindrical 3D Stem
+            drawExactStem(p0, p1, p2, p3, tData.scale);
+
+            // 3. Iconic Goblet/Chalice Flower Head
+            if (indivProgress > 0.12) {
+                const flowerProgress = Math.min(1, (indivProgress - 0.12) / 0.88);
+                drawExactTulipHead(p3.x, p3.y, flowerProgress, tData.scale, timeSec + tData.swayPhase);
+            }
+
+            ctx.restore();
+        }
+
+        /**
+         * BOTANICAL TULIP STEM
+         */
+        function drawExactStem(p0, p1, p2, p3, scale) {
+            ctx.save();
+            const thickness = (7 * scale);
+            
+            const stemGrad = ctx.createLinearGradient(p0.x, p0.y, p3.x, p3.y);
+            stemGrad.addColorStop(0, currentTheme.stem[0]);
+            stemGrad.addColorStop(0.5, currentTheme.stem[1]);
+            stemGrad.addColorStop(1, currentTheme.stem[2]);
+
+            ctx.strokeStyle = stemGrad;
+            ctx.lineWidth = thickness;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            ctx.beginPath();
+            ctx.moveTo(p0.x, p0.y);
+            ctx.bezierCurveTo(p1.x, p1.y, p2.x, p2.y, p3.x, p3.y);
+            ctx.stroke();
+
+            // 3D Specular Highlight Line
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.32)";
+            ctx.lineWidth = Math.max(1, thickness * 0.22);
+            ctx.beginPath();
+            ctx.moveTo(p0.x - 1.2, p0.y);
+            ctx.bezierCurveTo(p1.x - 1.2, p1.y, p2.x - 1.2, p2.y, p3.x - 1.2, p3.y);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        /**
+         * BOTANICAL TULIP LEAVES (Lanceolate, Clasping, Parallel Veins)
+         */
+        function drawExactTulipLeaves(p0, p1, p2, p3, leafProgress, scale, phaseTime) {
+            ctx.save();
+
+            const attach1 = getBezierPoint(0.2, p0, p1, p2, p3);
+            const attach2 = getBezierPoint(0.38, p0, p1, p2, p3);
+
+            const leafScale = Math.sin(leafProgress * Math.PI * 0.5) * scale;
+            const leafLen = 130 * leafScale;
+
+            // Left Clasping Leaf
+            ctx.save();
+            ctx.translate(attach1.x, attach1.y);
+            ctx.rotate(-Math.PI * 0.32 + Math.sin(phaseTime * 1.1) * 0.03);
+
+            const leafGradL = ctx.createLinearGradient(0, 0, -leafLen * 0.7, -leafLen);
+            leafGradL.addColorStop(0, currentTheme.leaf[0]);
+            leafGradL.addColorStop(0.5, currentTheme.leaf[1]);
+            leafGradL.addColorStop(1, currentTheme.leaf[2]);
+
+            ctx.fillStyle = leafGradL;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.bezierCurveTo(-leafLen * 0.35, -leafLen * 0.5, -leafLen * 0.7, -leafLen * 0.85, -leafLen * 0.4, -leafLen);
+            ctx.bezierCurveTo(-leafLen * 0.15, -leafLen * 0.6, -10, -leafLen * 0.25, 0, 0);
+            ctx.fill();
+
+            // Glaucous Parallel Vein Lines
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.22)";
+            ctx.lineWidth = 0.9;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.bezierCurveTo(-leafLen * 0.3, -leafLen * 0.5, -leafLen * 0.6, -leafLen * 0.8, -leafLen * 0.4, -leafLen);
+            ctx.stroke();
+            ctx.restore();
+
+            // Right Clasping Leaf
+            ctx.save();
+            ctx.translate(attach2.x, attach2.y);
+            ctx.rotate(Math.PI * 0.28 - Math.sin(phaseTime * 1.1) * 0.03);
+
+            const leafGradR = ctx.createLinearGradient(0, 0, leafLen * 0.7, -leafLen);
+            leafGradR.addColorStop(0, currentTheme.leaf[0]);
+            leafGradR.addColorStop(0.5, currentTheme.leaf[1]);
+            leafGradR.addColorStop(1, currentTheme.leaf[2]);
+
+            ctx.fillStyle = leafGradR;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.bezierCurveTo(leafLen * 0.35, -leafLen * 0.5, leafLen * 0.7, -leafLen * 0.85, leafLen * 0.38, -leafLen);
+            ctx.bezierCurveTo(leafLen * 0.15, -leafLen * 0.6, 10, -leafLen * 0.25, 0, 0);
+            ctx.fill();
+
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.22)";
+            ctx.lineWidth = 0.9;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.bezierCurveTo(leafLen * 0.3, -leafLen * 0.5, leafLen * 0.6, -leafLen * 0.8, leafLen * 0.38, -leafLen);
+            ctx.stroke();
+            ctx.restore();
+
+            ctx.restore();
+        }
+
+        /**
+         * BOTANICAL TULIP GOBLET / CHALICE FLOWER HEAD (6 Overlapping Tepals)
+         */
+        function drawExactTulipHead(x, y, flowerProgress, scale, phaseTime) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            const swayRot = Math.sin(phaseTime * 1.4) * 0.05;
+            ctx.rotate(swayRot);
+
+            // Scale head smoothly from pointed shoot bud to full chalice
+            const headScale = (0.3 + flowerProgress * 0.7) * scale;
+            ctx.scale(headScale, headScale);
+
+            // Bloom opening amount (starts opening at 0.4 progress, keeps tight cup shape)
+            const cupOpen = Math.max(0, (flowerProgress - 0.38) / 0.62);
+
+            // Soft Aura Glow around Flower Cup
+            if (flowerProgress > 0.4) {
+                const glowR = 45 + cupOpen * 30;
+                const glowGrad = ctx.createRadialGradient(0, -35, 5, 0, -35, glowR);
+                glowGrad.addColorStop(0, currentTheme.glow);
+                glowGrad.addColorStop(1, "rgba(0,0,0,0)");
+                ctx.fillStyle = glowGrad;
+                ctx.beginPath();
+                ctx.arc(0, -35, glowR, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Smooth Green Sepal Base
+            ctx.fillStyle = currentTheme.stem[1];
+            ctx.beginPath();
+            ctx.ellipse(0, 2, 7, 5, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            if (flowerProgress < 0.38) {
+                // Tightly Closed Pointed Green/Blushed Ovoid Bud
+                drawPointedTulipBud(flowerProgress);
+            } else {
+                // 6-Tepal Layered Chalice Structure (3 Back Outer Tepals, Pistil/Stamens, 3 Front Tepals)
+                
+                // --- A. BACK OUTER TEPALS ---
+                drawExactTepal(-16 * cupOpen, -58, 22, 68, -0.18 * cupOpen, currentTheme.petalOuter, 0.92);
+                drawExactTepal(16 * cupOpen, -58, 22, 68, 0.18 * cupOpen, currentTheme.petalOuter, 0.92);
+                drawExactTepal(0, -62, 24, 72, 0, currentTheme.petalOuter, 0.88);
+
+                // --- B. CENTRAL PISTIL & STAMENS (Inside Cup) ---
+                if (cupOpen > 0.15) {
+                    drawTulipInternalAnthers(cupOpen);
+                }
+
+                // --- C. FRONT INNER & MAIN TEPALS (Creating Plump Chalice Cup) ---
+                drawExactTepal(-24 * cupOpen, -52, 26, 74, -0.26 * cupOpen, currentTheme.petalMid, 0.98);
+                drawExactTepal(24 * cupOpen, -52, 26, 74, 0.26 * cupOpen, currentTheme.petalMid, 0.98);
+
+                // Center Main Front Tepal (Fullest spoon shape wrapping the front)
+                drawExactTepal(0, -48, 32, 78, 0, currentTheme.petalInner, 1.0, true);
+
+                if (cupOpen > 0.6) {
+                    drawDewdrops(cupOpen);
+                }
+            }
+
+            ctx.restore();
+        }
+
+        /**
+         * POINTED EMBRYONIC TULIP BUD
+         */
+        function drawPointedTulipBud(progress) {
+            ctx.save();
+            const budGrad = ctx.createLinearGradient(0, 5, 0, -60);
+            budGrad.addColorStop(0, currentTheme.stem[1]);
+            budGrad.addColorStop(0.35, currentTheme.petalOuter[0]);
+            budGrad.addColorStop(1, currentTheme.petalMid[0]);
+
+            ctx.fillStyle = budGrad;
+            ctx.beginPath();
+            ctx.moveTo(0, 5);
+            ctx.bezierCurveTo(-18, -15, -16, -48, 0, -62);
+            ctx.bezierCurveTo(16, -48, 18, -15, 0, 5);
+            ctx.fill();
+
+            // Vertical seam line
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, 5);
+            ctx.lineTo(0, -62);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        /**
+         * BOTANICAL TEPAL / PETAL (Obovate Tulip Cup Spoon-Shape)
+         */
+        function drawExactTepal(xOffset, yOffset, width, height, rotateAngle, colorArray, alpha = 1.0, isFront = false) {
+            ctx.save();
+            ctx.translate(xOffset, 0);
+            ctx.rotate(rotateAngle);
+            ctx.globalAlpha = alpha;
+
+            // Rich multi-stop gradient from dark velvety base to silky tip
+            const pGrad = ctx.createLinearGradient(0, 8, 0, -height);
+            pGrad.addColorStop(0, "#2a020d"); // Deep base shadow
+            pGrad.addColorStop(0.18, colorArray[0]);
+            pGrad.addColorStop(0.65, colorArray[1] || colorArray[0]);
+            pGrad.addColorStop(1, "#fff5f8");
+
+            ctx.fillStyle = pGrad;
+            ctx.beginPath();
+            ctx.moveTo(0, 6);
+            // Obovate tulip curve: wide plump base curving inward at rounded tip
+            ctx.bezierCurveTo(-width * 1.15, -height * 0.30, -width * 0.95, -height * 0.88, 0, -height);
+            ctx.bezierCurveTo(width * 0.95, -height * 0.88, width * 1.15, -height * 0.30, 0, 6);
+            ctx.closePath();
+            ctx.fill();
+
+            // Fine Parallel Vertical Vein Striations
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.22)";
+            ctx.lineWidth = 0.7;
+            for (let v = -2; v <= 2; v += 2) {
+                ctx.beginPath();
+                ctx.moveTo(v * 2, 0);
+                ctx.quadraticCurveTo(v * (width * 0.35), -height * 0.5, v * 3, -height * 0.92);
+                ctx.stroke();
+            }
+
+            // Specular Ridge Highlight for Waxy Tulip Surface
+            if (isFront) {
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.35)";
+                ctx.lineWidth = 1.2;
+                ctx.beginPath();
+                ctx.moveTo(-width * 0.3, -height * 0.2);
+                ctx.quadraticCurveTo(-width * 0.5, -height * 0.6, 0, -height * 0.95);
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        /**
+         * PISTIL & STAMENS INSIDE TULIP CUP
+         */
+        function drawTulipInternalAnthers(cupOpen) {
+            ctx.save();
+            const vis = Math.min(1.0, (cupOpen - 0.15) / 0.5);
+            ctx.globalAlpha = vis;
+
+            // 3-Lobed Central Stigma
+            ctx.fillStyle = "#81b276";
+            ctx.beginPath();
+            ctx.ellipse(0, -28, 4, 12, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Dark-tipped Tulip Stamens (6 surrounding filaments)
+            const angles = [-0.35, -0.2, -0.08, 0.08, 0.2, 0.35];
+            ctx.fillStyle = "#1e1018"; // Dark chocolate / charcoal anther tips
+            ctx.strokeStyle = "rgba(255, 240, 200, 0.8)";
+            ctx.lineWidth = 1.4;
+
+            angles.forEach(ang => {
+                ctx.save();
+                ctx.rotate(ang);
+                ctx.beginPath();
+                ctx.moveTo(0, -10);
+                ctx.lineTo(0, -32);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.ellipse(0, -35, 2, 4.5, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+
+            ctx.restore();
+        }
+
+        function drawDewdrops(bloomAngle) {
+            ctx.save();
+            ctx.globalAlpha = Math.min(0.8, (bloomAngle - 0.6) * 2);
+
+            const drops = [
+                { x: -14, y: -35, r: 2.8 },
+                { x: 18, y: -25, r: 3.2 },
+                { x: -4, y: -52, r: 2.2 }
+            ];
+
+            drops.forEach(d => {
+                ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+                ctx.beginPath();
+                ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = "#ffffff";
+                ctx.beginPath();
+                ctx.arc(d.x - d.r * 0.3, d.y - d.r * 0.3, d.r * 0.35, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            ctx.restore();
+        }
+
+        /**
+         * 6. DRAW PARTICLES, HIBISCUS BLOOMS & KINETIC RINGS
+         */
+        function drawParticles(dt, timeSec) {
+            // A. Pollen Motes
+            for (let i = pollenParticles.length - 1; i >= 0; i--) {
+                const p = pollenParticles[i];
+                p.update();
+                p.draw(ctx);
+                if (p.life <= 0) pollenParticles.splice(i, 1);
+            }
+
+            // Continuous gentle pollen emission once bloomed
+            if (progress > 0.65 && Math.random() < 0.35) {
+                const flowerX = width / 2 + currentSway;
+                const flowerY = height * 0.4;
+                pollenParticles.push(new PollenParticle(flowerX + (Math.random() - 0.5) * 60, flowerY + (Math.random() - 0.5) * 40));
+            }
+
+            // B. Procedural Hibiscus Blooms (Touch / Click Effect)
+            for (let i = hibiscusBlooms.length - 1; i >= 0; i--) {
+                const h = hibiscusBlooms[i];
+                h.update(dt, timeSec);
+                h.draw(ctx, timeSec);
+                if (h.age >= h.maxAge) hibiscusBlooms.splice(i, 1);
+            }
+
+            // C. Kinetic Rings
+            for (let i = kineticRings.length - 1; i >= 0; i--) {
+                const kr = kineticRings[i];
+                kr.update();
+                kr.draw(ctx);
+                if (kr.alpha <= 0) kineticRings.splice(i, 1);
+            }
+        }
+
+        /**
+         * UI CONTROLS & EVENT LISTENERS
+         */
+        const bloomScrubber = document.getElementById('bloomScrubber');
+        const btnPlayPause = document.getElementById('btnPlayPause');
+        const iconPlay = document.getElementById('iconPlay');
+        const iconPause = document.getElementById('iconPause');
+        const btnReplay = document.getElementById('btnReplay');
+        const timeDisplay = document.getElementById('timeDisplay');
+        const hintToast = document.getElementById('interactiveHint');
+        const controlsPanel = document.getElementById('controlsPanel');
+        const btnToggleControls = document.getElementById('btnToggleControls');
+        const iconSettings = document.getElementById('iconSettings');
+        const iconCloseControls = document.getElementById('iconCloseControls');
+        let controlsVisible = false;
+
+        // Show / Hide Settings & Palette Panel
+        btnToggleControls.addEventListener('click', () => {
+            controlsVisible = !controlsVisible;
+            if (controlsVisible) {
+                controlsPanel.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-6');
+                controlsPanel.classList.add('opacity-100', 'pointer-events-auto', 'translate-y-0');
+                iconSettings.classList.add('hidden');
+                iconCloseControls.classList.remove('hidden');
+            } else {
+                controlsPanel.classList.add('opacity-0', 'pointer-events-none', 'translate-y-6');
+                controlsPanel.classList.remove('opacity-100', 'pointer-events-auto', 'translate-y-0');
+                iconSettings.classList.remove('hidden');
+                iconCloseControls.classList.add('hidden');
+            }
+        });
+
+        // Scrubber manual drag
+        bloomScrubber.addEventListener('input', (e) => {
+            progress = parseFloat(e.target.value) / 1000;
+            triggeredMilestones.forEach(m => {
+                if (progress < m) triggeredMilestones.delete(m);
+            });
+            updateUIProgress();
+        });
+
+        // Play/Pause toggle
+        btnPlayPause.addEventListener('click', () => {
+            isPlaying = !isPlaying;
+            iconPlay.classList.toggle('hidden', isPlaying);
+            iconPause.classList.toggle('hidden', !isPlaying);
+        });
+
+        // Replay button
+        btnReplay.addEventListener('click', () => {
+            progress = 0;
+            triggeredMilestones.clear();
+            isPlaying = true;
+            iconPlay.classList.add('hidden');
+            iconPause.classList.remove('hidden');
+            updateUIProgress();
+            spawnSoilBurst(width / 2, height * 0.82);
+        });
+
+        // Speed buttons
+        document.querySelectorAll('.speed-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                speedMultiplier = parseFloat(btn.dataset.speed);
+            });
+        });
+
+        // Palette / Theme Switcher
+        document.querySelectorAll('.theme-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.theme-btn').forEach(b => {
+                    b.classList.remove('border-2', 'border-white/80', 'shadow-md');
+                    b.classList.add('border', 'border-white/20');
+                });
+                btn.classList.remove('border-white/20');
+                btn.classList.add('border-2', 'border-white/80', 'shadow-md');
+
+                currentThemeKey = btn.dataset.theme;
+                currentTheme = THEMES[currentThemeKey];
+
+                // Spawn theme hibiscus bloom at center screen
+                hibiscusBlooms.push(new HibiscusBloom(width / 2, height / 2));
+            });
+        });
+
+        // Update Scrubber UI & Progress
+        function updateUIProgress() {
+            bloomScrubber.value = Math.floor(progress * 1000);
+            const currentTime = (progress * DURATION_SECONDS).toFixed(1);
+            timeDisplay.innerText = `${currentTime}s / ${DURATION_SECONDS}s`;
+
+            if (progress < 0.20) {
+                setActiveTimelineMark('sprout');
+            } else if (progress < 0.45) {
+                setActiveTimelineMark('stem');
+            } else if (progress < 0.65) {
+                setActiveTimelineMark('unfurl');
+            } else if (progress < 0.85) {
+                setActiveTimelineMark('bud');
+            } else {
+                setActiveTimelineMark('bloom');
+            }
+        }
+
+        function setActiveTimelineMark(activeId) {
+            ['sprout', 'stem', 'unfurl', 'bud', 'bloom'].forEach(id => {
+                const el = document.getElementById(`mark-${id}`);
+                if (el) {
+                    if (id === activeId) {
+                        el.className = "text-white font-semibold transition-colors";
+                    } else {
+                        el.className = "text-white/40 transition-colors";
+                    }
+                }
+            });
+        }
+
+        // Touch & Mouse Interactivity (Spawns Animated Hibiscus Flowers)
+        function spawnHibiscusAt(x, y) {
+            hibiscusBlooms.push(new HibiscusBloom(x, y));
+            if (hintToast) hintToast.style.opacity = '0';
+        }
+
+        window.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+            userInteracted = true;
+
+            if (Math.random() < 0.3) {
+                pollenParticles.push(new PollenParticle(e.clientX, e.clientY));
+            }
+        });
+
+        window.addEventListener('touchmove', (e) => {
+            if (e.touches.length > 0) {
+                mouseX = e.touches[0].clientX;
+                mouseY = e.touches[0].clientY;
+                userInteracted = true;
+                if (Math.random() < 0.4) {
+                    pollenParticles.push(new PollenParticle(mouseX, mouseY));
+                }
+            }
+        });
+
+        window.addEventListener('click', (e) => {
+            // Ignore clicks inside the controls panel or toggle button
+            if (e.target && e.target.closest('#controlsPanel, #btnToggleControls')) return;
+            spawnHibiscusAt(e.clientX, e.clientY);
+        });
+
+        window.addEventListener('touchstart', (e) => {
+            if (e.target && e.target.closest('#controlsPanel, #btnToggleControls')) return;
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const touch = e.changedTouches[i];
+                spawnHibiscusAt(touch.clientX, touch.clientY);
+            }
+        }, { passive: true });
+
+        // Initialize Engine
+        window.onload = function() {
+            resizeCanvas();
+            iconPlay.classList.add('hidden');
+            iconPause.classList.remove('hidden');
+            requestAnimationFrame(drawScene);
+        };
+    </script>
+</body>
+</html>
