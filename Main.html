@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cinematic Tulip Emergence - Motion Graphics</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Font: Plus Jakarta Sans & Playfair Display for cinematic feel -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0b0914;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .serif-font {
+            font-family: 'Playfair Display', serif;
+        }
+        /* Custom Glassmorphism UI */
+        .glass-panel {
+            background: rgba(18, 16, 32, 0.55);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+        }
+        .glass-btn {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .glass-btn:hover {
+            background: rgba(255, 255, 255, 0.18);
+            border-color: rgba(255, 255, 255, 0.35);
+            transform: translateY(-1px);
+        }
+        .glass-btn:active {
+            transform: translateY(1px);
+        }
+        .glass-btn.active {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.6);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.25);
+        }
+        /* Range Scrubber Styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 999px;
+            transition: background 0.3s;
+        }
+        input[type=range]:hover::-webkit-slider-runnable-track {
+            background: rgba(255, 255, 255, 0.28);
+        }
+        input[type=range]::-webkit-slider-thumb {
+            height: 18px;
+            width: 18px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -6px;
+            box-shadow: 0 0 12px rgba(255, 255, 255, 0.8), 0 2px 6px rgba(0,0,0,0.4);
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.25);
+        }
+        /* Fade animations */
+        .fade-enter {
+            opacity: 0;
+            transform: translateY(10px);
+            animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body class="relative w-full h-full text-white overflow-hidden select-none">
+
+    <!-- Canvas Background Animation Layer -->
+    <canvas id="motionCanvas" class="absolute inset-0 w-full h-full block z-0 cursor-crosshair"></canvas>
+
+    <!-- Floating Settings Toggle Button (Bottom Right) -->
+    <button id="btnToggleControls" title="Show / Hide Settings" aria-label="Toggle Controls" class="fixed bottom-5 right-5 z-30 glass-panel glass-btn p-3.5 rounded-full text-white/80 hover:text-white focus:outline-none flex items-center justify-center transition-all duration-300">
+        <!-- Sliders / Settings Icon -->
+        <svg id="iconSettings" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+        </svg>
+        <!-- Close Icon (hidden initially) -->
+        <svg id="iconCloseControls" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+    </button>
+
+    <!-- Floating Glass UI Controls (Hidden by default, toggled via button) -->
+    <div id="controlsPanel" class="absolute bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-20 w-[92%] max-w-3xl glass-panel rounded-3xl p-4 md:p-5 text-white/90 transition-all duration-500 opacity-0 pointer-events-none translate-y-6">
+        
+        <!-- Scrubber Header & Timeline Marks -->
+        <div class="flex items-center justify-between mb-2 text-xs text-white/60 font-medium px-1">
+            <span class="flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                Bloom Progress
+            </span>
+            <div class="flex gap-4 text-[11px] text-white/40 hidden md:flex">
+                <span id="mark-sprout" class="transition-colors">0% Sprout</span>
+                <span id="mark-stem" class="transition-colors">25% Stem</span>
+                <span id="mark-unfurl" class="transition-colors">45% Leaf</span>
+                <span id="mark-bud" class="transition-colors">65% Bud</span>
+                <span id="mark-bloom" class="transition-colors">100% Bloom</span>
+            </div>
+            <span id="timeDisplay" class="font-mono text-white/80">0.0s / 20s</span>
+        </div>
+
+        <!-- Scrubber Range Slider -->
+        <div class="relative w-full mb-4 px-1">
+            <input type="range" id="bloomScrubber" min="0" max="1000" value="0" step="1">
+            <!-- Phase Divider Dots along track -->
+            <div class="absolute top-1/2 -translate-y-1/2 left-0 right-0 pointer-events-none px-2 flex justify-between opacity-30">
+                <div class="w-1.5 h-1.5 rounded-full bg-white"></div>
+                <div class="w-1.5 h-1.5 rounded-full bg-white"></div>
+                <div class="w-1.5 h-1.5 rounded-full bg-white"></div>
+                <div class="w-1.5 h-1.5 rounded-full bg-white"></div>
+                <div class="w-1.5 h-1.5 rounded-full bg-white"></div>
+            </div>
+        </div>
+
+        <!-- Main Interactive Button Controls -->
+        <div class="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-white/10">
+            
+            <!-- Left: Play/Pause & Replay -->
+            <div class="flex items-center gap-2">
+                <button id="btnPlayPause" title="Play / Pause" class="glass-btn p-3 rounded-full text-white focus:outline-none flex items-center justify-center">
+                    <!-- Play Icon -->
+                    <svg id="iconPlay" class="w-5 h-5 translate-x-0.5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                    <!-- Pause Icon (hidden initially) -->
+                    <svg id="iconPause" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                    </svg>
+                </button>
+
+                <button id="btnReplay" title="Restart Emergence" class="glass-btn p-3 rounded-full text-white/80 hover:text-white focus:outline-none flex items-center justify-center">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                </button>
+
+                <!-- Speed Selector Toggle -->
+                <div class="flex items-center bg-black/20 p-1 rounded-2xl border border-white/10 text-xs ml-1">
+                    <button data-speed="0.5" class="speed-btn glass-btn px-2.5 py-1 rounded-xl text-white/70 hover:text-white text-[11px] font-medium">0.5x</button>
+                    <button data-speed="1.0" class="speed-btn glass-btn active px-2.5 py-1 rounded-xl text-white text-[11px] font-medium">1x</button>
+                    <button data-speed="1.5" class="speed-btn glass-btn px-2.5 py-1 rounded-xl text-white/70 hover:text-white text-[11px] font-medium">1.5x</button>
+                    <button data-speed="2.0" class="speed-btn glass-btn px-2.5 py-1 rounded-xl text-white/70 hover:text-white text-[11px] font-medium">2x</button>
+                </div>
+            </div>
+
+            <!-- Right: Theme Palette Switcher -->
+            <div class="flex items-center gap-1.5 bg-black/20 p-1.5 rounded-2xl border border-white/10">
+                <span class="text-[11px] text-white/40 uppercase tracking-wider font-semibold px-2 hidden sm:inline">Palette</span>
+                
+                <button data-theme="crimson" title="Crimson Velvet" class="theme-btn w-7 h-7 rounded-full relative transition-transform hover:scale-110 flex items-center justify-center border-2 border-white/80 shadow-md" style="background: linear-gradient(135deg, #900c3f, #ff65a3)">
+                </button>
+                <button data-theme="golden" title="Golden Dawn" class="theme-btn w-7 h-7 rounded-full relative transition-transform hover:scale-110 flex items-center justify-center border border-white/20" style="background: linear-gradient(135deg, #d97736, #ffe66d)">
+                </button>
+                <button data-theme="violet" title="Midnight Violet" class="theme-btn w-7 h-7 rounded-full relative transition-transform hover:scale-110 flex items-center justify-center border border-white/20" style="background: linear-gradient(135deg, #7c3aed, #38bdf8)">
+                </button>
+                <button data-theme="sakura" title="Blush Sakura" class="theme-btn w-7 h-7 rounded-full relative transition-transform hover:scale-110 flex items-center justify-center border border-white/20" style="background: linear-gradient(135deg, #b85b79, #ffc6ff)">
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Interactive Hint Toast (disappears on mouse move/click) -->
+    <div id="interactiveHint" class="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 glass-panel px-4 py-2 rounded-full text-xs text-white/70 flex items-center gap-2 pointer-events-none transition-opacity duration-700 opacity-90">
+        <svg class="w-4 h-4 text-emerald-400 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"/>
+        </svg>
+        <span>Move mouse to stir the breeze. Touch or click anywhere to bloom a hibiscus!</span>
+    </div>
+
+    <!-- JavaScript Canvas & Physics Engine -->
+    <script>
+        /**
+         * CINEMATIC TULIP EMERGENCE MOTION GRAPHICS ENGINE
+         * High-performance procedural Canvas rendering with dynamic lighting, math Bezier growth curves,
+         * wind physics, dewdrops, and interactive motion graphic accents.
+         */
+
+        const canvas = document.getElementById('motionCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Color Palettes Data
+        const THEMES = {
+            crimson: {
+                name: "Crimson Velvet",
+                skyTop: [15, 9, 24],
+                skyMid: [45, 19, 44],
+                skyBottom: [128, 19, 54],
+                groundTop: [35, 14, 25],
+                groundBottom: [12, 5, 10],
+                stem: ["#2d5a27", "#4e8e45", "#81b276"],
+                leaf: ["#23471f", "#3e7037", "#629b5a"],
+                petalOuter: ["#7a0832", "#a80e44"],
+                petalMid: ["#c70039", "#ee4540"],
+                petalInner: ["#ff5722", "#ffc107"],
+                stamen: "#ffe66d",
+                glow: "rgba(255, 101, 163, 0.4)",
+                particleColor: ["#ff9ebb", "#ffd700", "#ff65a3", "#ffffff"]
+            },
+            golden: {
+                name: "Golden Dawn",
+                skyTop: [13, 27, 42],
+                skyMid: [27, 38, 59],
+                skyBottom: [224, 169, 109],
+                groundTop: [42, 30, 20],
+                groundBottom: [15, 10, 6],
+                stem: ["#436100", "#709200", "#aacc00"],
+                leaf: ["#314700", "#577300", "#86a61a"],
+                petalOuter: ["#b85c1d", "#d97736"],
+                petalMid: ["#f4a261", "#e76f51"],
+                petalInner: ["#ffe66d", "#ffffff"],
+                stamen: "#ffffff",
+                glow: "rgba(255, 230, 109, 0.4)",
+                particleColor: ["#ffe66d", "#f4a261", "#ffffff", "#ffda99"]
+            },
+            violet: {
+                name: "Midnight Violet",
+                skyTop: [9, 10, 15],
+                skyMid: [18, 21, 38],
+                skyBottom: [67, 56, 202],
+                groundTop: [22, 18, 40],
+                groundBottom: [8, 6, 15],
+                stem: ["#134e4a", "#2dd4bf", "#99f6e4"],
+                leaf: ["#0f3d3a", "#14b8a6", "#5eead4"],
+                petalOuter: ["#4c1d95", "#6d28d9"],
+                petalMid: ["#7c3aed", "#c084fc"],
+                petalInner: ["#e879f9", "#38bdf8"],
+                stamen: "#38bdf8",
+                glow: "rgba(168, 85, 247, 0.45)",
+                particleColor: ["#c084fc", "#e879f9", "#38bdf8", "#ffffff"]
+            },
+            sakura: {
+                name: "Blush Sakura",
+                skyTop: [29, 30, 44],
+                skyMid: [61, 52, 77],
+                skyBottom: [243, 197, 197],
+                groundTop: [40, 32, 45],
+                groundBottom: [18, 15, 22],
+                stem: ["#365e49", "#609975", "#a3d9b1"],
+                leaf: ["#294a39", "#4d8262", "#84be99"],
+                petalOuter: ["#9e4b65", "#b85b79"],
+                petalMid: ["#e8998d", "#ffc6ff"],
+                petalInner: ["#fff0f5", "#ffffff"],
+                stamen: "#ffd1dc",
+                glow: "rgba(255, 198, 255, 0.4)",
+                particleColor: ["#ffc6ff", "#ffd1dc", "#ffffff", "#fbcfe8"]
+            }
+        };
+
+        let currentThemeKey = 'crimson';
+        let currentTheme = THEMES[currentThemeKey];
+
+        // Global Animation State
+        let progress = 0; // 0.0 to 1.0
+        let isPlaying = true;
+        let speedMultiplier = 1.0;
+        const DURATION_SECONDS = 14; // Tuned 14s emergence at 1x speed
+        let lastTime = performance.now();
+
+        // Mouse & Interactive Sway Physics
+        let mouseX = 0;
+        let mouseY = 0;
+        let targetSway = 0;
+        let currentSway = 0;
+        let swayVelocity = 0;
+        let userInteracted = false;
+
+        // Visual Particles & Systems
+        const pollenParticles = [];
+        const backgroundStars = [];
+        const hibiscusBlooms = [];
+        const kineticRings = [];
+
+        // Multi-Tulip Cluster Definition (7 Botanically Accurate Tulips)
+        const TULIP_CLUSTER = [
+            // Background Depth Tulips (Rendered First)
+            { xRatio: 0.35, heightRatio: 0.31, scale: 0.74, bloomOffset: 0.08, swayPhase: 3.7, bend: -18, hueShift: -8 },
+            { xRatio: 0.64, heightRatio: 0.33, scale: 0.76, bloomOffset: 0.06, swayPhase: 4.4, bend: 15, hueShift: 6 },
+            
+            // Midground Tulips
+            { xRatio: 0.40, heightRatio: 0.38, scale: 0.88, bloomOffset: 0.03, swayPhase: 0.8, bend: -22, hueShift: -4 },
+            { xRatio: 0.60, heightRatio: 0.40, scale: 0.90, bloomOffset: 0.02, swayPhase: 1.5, bend: 20, hueShift: 4 },
+            
+            // Foreground Side Tulips
+            { xRatio: 0.27, heightRatio: 0.35, scale: 0.82, bloomOffset: 0.07, swayPhase: 2.2, bend: -30, hueShift: -10 },
+            { xRatio: 0.73, heightRatio: 0.36, scale: 0.84, bloomOffset: 0.05, swayPhase: 2.9, bend: 28, hueShift: 8 },
+
+            // Hero Center Tulip (Foreground - Rendered Last)
+            { xRatio: 0.50, heightRatio: 0.45, scale: 1.02, bloomOffset: 0.0,  swayPhase: 0.0, bend: 2, hueShift: 0 }
+        ];
+
+        // High DPI Canvas Setup
+        let dpr = window.devicePixelRatio || 1;
+        let width = 0;
+        let height = 0;
+
+        function resizeCanvas() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            dpr = window.devicePixelRatio || 1;
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            ctx.scale(dpr, dpr);
+            initStars();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        // Initialize Ambient Background Stars/Motes
+        function initStars() {
+            backgroundStars.length = 0;
+            const count = Math.floor((width * height) / 9000);
+            for (let i = 0; i < count; i++) {
+                backgroundStars.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height * 0.85,
+                    radius: Math.random() * 1.5 + 0.5,
+                    alpha: Math.random() * 0.7 + 0.2,
+                    speedY: Math.random() * 0.15 + 0.05,
+                    pulse: Math.random() * Math.PI * 2
+                });
+            }
+        }
+
+        // Particle Class for Interactive Pollen & Emergence Dust
+        class PollenParticle {
+            constructor(x, y, isBurst = false) {
+                this.x = x;
+                this.y = y;
+                this.radius = isBurst ? Math.random() * 3 + 1.5 : Math.random() * 2 + 0.8;
+                const angle = Math.random() * Math.PI * 2;
+                const speed = isBurst ? Math.random() * 2.5 + 0.5 : Math.random() * 0.8 + 0.2;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed - (isBurst ? 0.5 : 0.8);
+                this.life = 1.0;
+                this.decay = Math.random() * 0.015 + 0.008;
+                const colors = currentTheme.particleColor;
+                this.color = colors[Math.floor(Math.random() * colors.length)];
+                this.wobble = Math.random() * Math.PI * 2;
+            }
+
+            update() {
+                this.x += this.vx + Math.sin(this.wobble) * 0.3;
+                this.y += this.vy;
+                this.wobble += 0.05;
+                this.life -= this.decay;
+            }
+
+            draw(ctx) {
+                if (this.life <= 0) return;
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.life);
+                ctx.fillStyle = this.color;
+                ctx.shadowColor = this.color;
+                ctx.shadowBlur = 8;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // Animated Procedural Hibiscus Flower (Spawned on Touch / Click)
+        class HibiscusBloom {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.age = 0;
+                th
